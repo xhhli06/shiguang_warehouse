@@ -164,10 +164,26 @@ function fillCustomTime(course) {
         return course;
     }
 
+    if (course.startSection >= 5 && course.endSection <= 11) {
+        return course;
+    }
+
     const timeSlotMap = getTimeSlotMap(scheduleType);
     const startSlot = timeSlotMap.get(course.startSection);
     const endSlot = timeSlotMap.get(course.endSection);
     if (!startSlot || !endSlot) {
+        return course;
+    }
+
+    const primaryTimeSlotMap = new Map(PRIMARY_TIME_SLOTS.map((slot) => [slot.number, slot]));
+    const primaryStartSlot = primaryTimeSlotMap.get(course.startSection);
+    const primaryEndSlot = primaryTimeSlotMap.get(course.endSection);
+    if (
+        primaryStartSlot &&
+        primaryEndSlot &&
+        primaryStartSlot.startTime === startSlot.startTime &&
+        primaryEndSlot.endTime === endSlot.endTime
+    ) {
         return course;
     }
 

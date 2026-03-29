@@ -333,3 +333,7 @@ schools:
     initial: "D"
     resource_folder: "DLMU"
 
+  - id: "HIIT"
+    name: "河南信息科技学院"
+    initial: "H"
+    resource_folder: "HIIT"

@@ -357,3 +357,8 @@ schools:
     name: "大连大学"
     initial: "D"
     resource_folder: "DLU"
+
+ - id: "HBMU"
+    name: "湖北医药学院"
+    initial: "H"
+    resource_folder: "HBMU"

@@ -358,7 +358,7 @@ schools:
     initial: "D"
     resource_folder: "DLU"
 
- - id: "HBMU"
+  - id: "HBMU"
     name: "湖北医药学院"
     initial: "H"
     resource_folder: "HBMU"

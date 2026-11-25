@@ -1,0 +1,8 @@
+adapters:
+  - adapter_id: "WYNU_01"
+    adapter_name: "滇西科技师范学院教务系统"
+    category: "BACHELOR_AND_ASSOCIATE"
+    asset_js_path: "wynu.js"
+    import_url: "https://ciap.wynu.edu.cn/authserver/login?service=https%3A%2F%2Fehall.wynu.edu.cn%2Flogin%3Fservice%3Dhttps%3A%2F%2Fehall.wynu.edu.cn%2Fnew%2Findex.html"
+    maintainer: "ZGxudQ"
+    description: "切换到电脑模式（桌面版）后登录打开「我的课表」，选择学期导入课程、节次作息和可获取的学期设置。"

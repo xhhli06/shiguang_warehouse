@@ -12,17 +12,8 @@ function validateYearInput(input) {
 
 // ---------- 工具函数 ----------
 function parseWeeks(weeksStr) {
-    // 🔥 修复核心：兼容数字、数组和字符串
-    if (typeof weeksStr === 'number') {
-        return [weeksStr];
-    }
-    if (Array.isArray(weeksStr)) {
-        return weeksStr.map(Number);
-    }
-
-    // 兼容字符串情况
-    let str = String(weeksStr).replace('周', '');
-    const parts = str.split(',');
+    weeksStr = weeksStr.replace('周', '');
+    const parts = weeksStr.split(',');
     const weeks = [];
     for (const part of parts) {
         if (part.includes('-')) {
@@ -35,23 +26,7 @@ function parseWeeks(weeksStr) {
     return weeks;
 }
 
-// 兼容旧字段 jcdm 的解析（保留作为备用）
-function parseSections(jcdm) {
-    const str = String(jcdm);
-    const sections = [];
-    if (str.includes('-')) {
-        const [start, end] = str.split('-').map(Number);
-        for (let i = start; i <= end; i++) sections.push(i);
-    } else if (/^\d+$/.test(str)) {
-        for (let i = 0; i < str.length; i += 2) {
-            const sec = parseInt(str.substring(i, i + 2), 10);
-            if (!isNaN(sec)) sections.push(sec);
-        }
-    } else {
-        sections.push(parseInt(str));
-    }
-    return sections;
-}
+// 🔥 移除了 parseSections 函数，因为不再使用 jcdm
 
 function parseRawCourses(rawData) {
     const courseInfos = [];
@@ -59,28 +34,19 @@ function parseRawCourses(rawData) {
         const name = course.kcmc;
         const teacher = course.teaxms;
         const position = course.jxcdmc;
-        const weeks = parseWeeks(course.zc); // 这里调用已经修复
+        const weeks = parseWeeks(course.zc);
         const day = parseInt(course.xq);
-
-        // 使用 ps 和 pe 字段来生成 sections 数组
-        let sections = [];
-        if (course.ps !== undefined && course.pe !== undefined && course.ps !== '' && course.pe !== '') {
-            const start = parseInt(course.ps, 10);
-            const end = parseInt(course.pe, 10);
-            if (!isNaN(start) && !isNaN(end)) {
-                for (let i = start; i <= end; i++) {
-                    sections.push(i);
-                }
+        
+        // 🔥 使用新的 ps 和 pe 字段生成节次数组
+        const startSection = parseInt(course.ps, 10);
+        const endSection = parseInt(course.pe, 10);
+        const sections = [];
+        if (!isNaN(startSection) && !isNaN(endSection)) {
+            for (let i = startSection; i <= endSection; i++) {
+                sections.push(i);
             }
-        } else if (course.jcdm !== undefined) {
-            sections = parseSections(course.jcdm);
         }
-
-        if (sections.length === 0) {
-            console.warn('跳过无节次信息的课程:', course.kcmc);
-            continue;
-        }
-
+        
         courseInfos.push({ name, teacher, position, weeks, day, sections });
     }
     return courseInfos;
@@ -119,72 +85,51 @@ function getTimeSlots() {
 // ---------- 网络请求 ----------
 async function fetchCourseData(xnxqdm) {
     const url = "https://ejwc.glmu.edu.cn/new/student/xsgrkb/getCalendarWeekDatas";
+    const bodyParams = `xnxqdm=${xnxqdm}`;
 
-    // 🔥 核心修改：并发请求第 1 周到第 20 周
-    const promises = [];
-    for (let zc = 1; zc <= 20; zc++) {
-        const bodyParams = `xnxqdm=${xnxqdm}&zc=${zc}`;
-        promises.push(
-            fetch(url, {
-                headers: {
-                    "accept": "application/json, text/javascript, */*; q=0.01",
-                    "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-                    "x-requested-with": "XMLHttpRequest"
-                },
-                body: bodyParams,
-                method: "POST",
-                credentials: "include"
-            })
-            .then(res => res.json())
-            .then(ret => {
-                // 深度兼容新版数据结构
-                let courseData = null;
-                if (Array.isArray(ret)) {
-                    courseData = ret;
-                } else if (ret.rows && Array.isArray(ret.rows)) {
-                    courseData = ret.rows;
-                } else if (ret.data) {
-                    if (Array.isArray(ret.data)) {
-                        courseData = ret.data;
-                    } else if (ret.data.rows && Array.isArray(ret.data.rows)) {
-                        courseData = ret.data.rows;
-                    } else if (ret.data.list && Array.isArray(ret.data.list)) {
-                        courseData = ret.data.list;
-                    }
-                } else if (ret.result && Array.isArray(ret.result)) {
-                    courseData = ret.result;
-                } else if (ret.list && Array.isArray(ret.list)) {
-                    courseData = ret.list;
-                }
-
-                if (courseData && courseData.length > 0) {
-                    // 安全补全：如果教务系统返回的数据里没有 zc 字段，补上当前请求的周次
-                    courseData.forEach(course => {
-                        if (!course.zc) {
-                            course.zc = String(zc);
-                        }
-                    });
-                    return courseData;
-                }
-                return [];
-            })
-            .catch(err => {
-                console.error(`请求第 ${zc} 周数据出错:`, err);
-                return []; // 某一周失败不影响整体
-            })
-        );
-    }
-
-    // 等待所有 20 个请求并发完成
-    const results = await Promise.all(promises);
-
-    // 合并结果
-    let allRows = [];
-    results.forEach(rows => {
-        allRows = allRows.concat(rows);
+    const res = await fetch(url, {
+        headers: {
+            "accept": "application/json, text/javascript, */*; q=0.01",
+            "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "x-requested-with": "XMLHttpRequest"
+        },
+        body: bodyParams,
+        method: "POST",
+        credentials: "include"
     });
 
-    return allRows;
+    if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const ret = await res.json();
+
+    let courseData = null;
+
+    if (Array.isArray(ret)) {
+        courseData = ret;
+    } else if (ret.rows && Array.isArray(ret.rows)) {
+        courseData = ret.rows;
+    } else if (ret.data) {
+        if (Array.isArray(ret.data)) {
+            courseData = ret.data;
+        } else if (ret.data.rows && Array.isArray(ret.data.rows)) {
+            courseData = ret.data.rows;
+        } else if (ret.data.list && Array.isArray(ret.data.list)) {
+            courseData = ret.data.list;
+        }
+    } else if (ret.result && Array.isArray(ret.result)) {
+        courseData = ret.result;
+    } else if (ret.list && Array.isArray(ret.list)) {
+        courseData = ret.list;
+    }
+
+    if (!courseData) {
+        console.error('未能从返回数据中提取到课程数组。原始数据为:', ret);
+        throw new Error("返回数据格式不正确，请按F12查看控制台日志");
+    }
+
+    return courseData;
 }
 
 // ---------- 用户交互 ----------
